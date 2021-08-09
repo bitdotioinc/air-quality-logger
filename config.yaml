@@ -1,0 +1,23 @@
+# Configures sensor logging, must align with schema.sql on columns
+columns:
+  - location
+  - sensor_id
+  - pm_2_5
+  - pm_10
+measurements: # Syntax: start byte, num bytes, scaler
+  pm_2_5:
+    - 2
+    - 2
+    - 10
+  pm_10: 
+    - 4
+    - 2
+    - 10
+sensor_id: # Syntax: start byte, num_bytes
+  - 6
+  - 2
+period: 60
+location: Andrew's house - inside
+repo_owner: andrewdoss
+repo_name: air_quality
+table_name: pm_measurements

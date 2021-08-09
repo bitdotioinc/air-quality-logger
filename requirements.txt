@@ -1,0 +1,4 @@
+bitdotio[psycopg2-binary]
+pyaml
+python-dotenv
+pyserial
