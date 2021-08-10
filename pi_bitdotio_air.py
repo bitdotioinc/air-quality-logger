@@ -70,7 +70,11 @@ def main():
 
     ser = serial.Serial('/dev/ttyUSB0')
     
+    strikes = 0
+    
     while True:
+        if strikes > 15: 
+            break
         try:
             b = bitdotio.bitdotio(BITDOTIO_API_KEY)
 
@@ -85,9 +89,10 @@ def main():
 
             insert_record(b, [record[col] for col in CONFIG['columns']], CONFIG)
             logger.info(f'RECORD UPLOADED: {record}')
+            strikes = max(0, strikes - 1)
         except Exception as e:
             logger.exception('An error occurred')
-            raise e
+            strikes += 1
 
 
 if __name__ == '__main__':
