@@ -133,7 +133,7 @@ def insert_record(bitdotio, record, qualified_table):
         The schema qualified table to upload to.
     ----
     """
-    sql = f'INSERT INTO {fully_qualified} '
+    sql = f'INSERT INTO {qualified_table} '
     sql += 'VALUES (' + ', '.join(['%s'] * len(record)) + ');'
     execute_sql(bitdotio, sql, record)
 
