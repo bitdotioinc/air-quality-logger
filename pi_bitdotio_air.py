@@ -111,7 +111,7 @@ def create_record(sample, CONFIG):
     """
     record = {'location': CONFIG['location']}
     record['sensor_id'] = parse_value(sample[0], *CONFIG['sensor_id'])
-    record['datetime'] = str(datetime.datetime.utcnow())
+    record['datetime'] = str(datetime.utcnow())
     for measurement, parse_args in CONFIG['measurements'].items():
         meas_sum = sum([parse_value(x, *parse_args) for x in sample])
         record[measurement] = meas_sum / CONFIG['period']
