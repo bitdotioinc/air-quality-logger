@@ -16,7 +16,7 @@ measurements: # Syntax: start byte, num bytes, scaler
 sensor_id: # Syntax: start byte, num_bytes
   - 6
   - 2
-period: 60
+period: 300
 location: Andrew's house - inside
 repo_owner: andrewdoss
 repo_name: air_quality

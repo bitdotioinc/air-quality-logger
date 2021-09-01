@@ -1,3 +1,15 @@
+'''Logs sensor values from a serial port to bit.io.
+
+This implementation specifically logs air quality data from an SDS011 optical
+sensor to a cloud Postgres database on bit.io using a simple Python program
+that can run on a Raspberry Pi.
+
+However, this pattern can be easily adapted for any similar IoT logging use-case
+where a byte stream can be parsed for values that need to be logged to a
+database.
+'''
+
+
 import logging
 from logging.handlers import RotatingFileHandler
 import os
@@ -16,6 +28,7 @@ BITDOTIO_API_KEY = os.getenv('BITDOTIO_API_KEY')
 # Logging setup
 log_file = 'log.out'
 log_formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
+# This 
 handler = RotatingFileHandler(log_file, mode='a', maxBytes=20*1024**2, 
                                  backupCount=1, encoding=None, delay=0)
 handler.setFormatter(log_formatter)
@@ -27,7 +40,12 @@ logger.addHandler(handler)
 
 
 def parse_value(data, start_byte, num_bytes):
-    '''Returns a value from a sequence of bytes'''
+    """Returns an int from a sequence of bytes.
+    
+    Parameters
+    ----------
+    data : 
+    """
     value = data[start_byte: start_byte + num_bytes]
     return int.from_bytes(value, byteorder='little')
 
