@@ -20,6 +20,7 @@ port_device: /dev/ttyUSB0    # Linux USB serial port, change for Windows
 message_length: 10    # Number of bytes per sensor transmission
 period: 300    # Number of messages to aggregate per upload
 byte_order: little # Endianness of bytes for values in the message
+max_retries: 5 # How many failed uploads are permitted before process terminates
 location: outside
 repo_owner: air_quality_log_test    # bit.io username
 repo_name: air_quality    # bit.io repo name
