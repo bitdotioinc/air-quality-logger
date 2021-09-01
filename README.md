@@ -11,6 +11,5 @@ A minimal air quality data logger using Python and bit.io.
     - `source venv/bin/activate`<br>
     - `python3 -m pip install --upgrade pip -r requirements.txt`<br>
 
-
 ## Run
 `python pi_bitdotio_air.py`
