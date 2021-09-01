@@ -28,7 +28,7 @@ cd air-quality-logger
 ```
 4. Add a `.env` text file with your own [bit.io API key](https://docs.bit.io/docs/using-python-bitdotio) as `BITDOTIO_API_KEY`  
 ```bash
-touch .env & echo 'BITDOTIO_API_KEY=<INSERT_YOUR_API_KEY_HERE>'
+touch .env & echo 'BITDOTIO_API_KEY=<INSERT_YOUR_API_KEY_HERE>' > .env
 ```
 5. Update `repo_owner`, `repo_name`, and `table_name` in the `config.yaml` file to point to your desired repo/table on bit.io.<br><br>
 6. Create a virtual environment and install the required packages from `requirements.txt`
