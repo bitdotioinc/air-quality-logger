@@ -41,7 +41,7 @@ logger.setLevel(logging.INFO)
 logger.addHandler(handler)
 
 
-def parse_value(data, start_byte, num_bytes, byte_order='little', scale=None):
+def parse_value(data, byte_order, start_byte, num_bytes, scale=None):
     """Returns an int from a sequence of bytes.
 
     Scale is an optional argument that handles decimals encoded as int.
@@ -113,7 +113,7 @@ def create_record(sample, CONFIG):
     record['sensor_id'] = parse_value(sample[0], *CONFIG['sensor_id'])
     record['datetime'] = str(datetime.utcnow())
     for measurement, parse_args in CONFIG['measurements'].items():
-        meas_sum = sum([parse_value(x, *parse_args) for x in sample])
+        meas_sum = sum([parse_value(x, CONFIG['byte_order'], *parse_args) for x in sample])
         record[measurement] = meas_sum / CONFIG['period']
     return record
 
