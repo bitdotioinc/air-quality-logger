@@ -1,5 +1,6 @@
 # Configures sensor logging
 columns:    # Must align with schema.sql on columns
+  - datetime
   - location
   - sensor_id
   - pm_2_5

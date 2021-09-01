@@ -50,13 +50,13 @@ def parse_value(data, byte_order, start_byte, num_bytes, scale=None):
     ----------
     data : bytes
         A sequence of bytes for one full sensor message
+    byte_order : str, optional
+        Endianness of the bytes, 'little' (default) or 'big'.
     start_byte : int
         Start byte of the parsed value in the message
     num_bytes : int
         Number of bytes in the parsed value.
-    byte_order : str, optional
-        Endianness of the bytes, 'little' (default) or 'big'.
-    scale_denom : float, optional
+    scale : float, optional
         Factor to scale the parsed value by, default none
 
     Returns 
@@ -79,7 +79,7 @@ def execute_sql(bitdotio, sql, params=None):
     sql : str
         A SQL statement with optional parameters.
     params : list, optional
-        Parameters for psycopg2 escaped interpolation
+        Parameters for psycopg2 escaped interpolation, all as str type
     ----------
     """
     try:
@@ -89,37 +89,38 @@ def execute_sql(bitdotio, sql, params=None):
         cur.close()
         conn.commit()
     except Exception as e:
-        logger.exception('An error occurred')
+        logger.exception('A query error occurred')
         raise e
     finally:
         if conn is not None:
             conn.close()
 
 
-def create_record(sample, CONFIG):
+def create_record(sample, config):
     """Run arbitrary sql with parameters on bit.io.
     
     Parameters
     ----------
-    bitdotio : _Bit object
-        bit.io connection client.
-    sql : str
-        A SQL statement with optional parameters.
-    params : list, optional
-        Parameters for psycopg2 escaped interpolation
+    sample : list 
+        A list of bytes objects for a sample of sensor reads.
+    config : dict
+        The configuration for creating a record.
+    
+    Returns
+    ----------
+    dict
     ----
     """
-    record = {'location': CONFIG['location']}
-    record['sensor_id'] = parse_value(sample[0], *CONFIG['sensor_id'])
+    record = {'location': config['location']}
+    record['sensor_id'] = parse_value(sample[0], config['byte_order'], *config['sensor_id'])
     record['datetime'] = str(datetime.utcnow())
-    for measurement, parse_args in CONFIG['measurements'].items():
-        meas_sum = sum([parse_value(x, CONFIG['byte_order'], *parse_args) for x in sample])
-        record[measurement] = meas_sum / CONFIG['period']
+    for measurement, parse_args in config['measurements'].items():
+        meas_sum = sum([parse_value(x, config['byte_order'], *parse_args) for x in sample])
+        record[measurement] = meas_sum / config['period']
     return record
 
 
-
-def insert_record(bitdotio, record, fully_qualified):
+def insert_record(bitdotio, record, qualified_table):
     """Inserts a single sensor measurement record.
     
     Parameters
@@ -127,9 +128,9 @@ def insert_record(bitdotio, record, fully_qualified):
     bitdotio : _Bit object
         bit.io connection client.
     record : list
-        The record.
-    config : list, optional
-        Parameters for psycopg2 escaped interpolation
+        The record as a list of str representations.
+    qualified_table: str
+        The schema qualified table to upload to.
     ----
     """
     sql = f'INSERT INTO {fully_qualified} '
@@ -143,7 +144,7 @@ def main():
         CONFIG = yaml.safe_load(f)
 
     # Schema-qualified upload table
-    fully_qualified = f'''"{CONFIG['repo_owner']}/{CONFIG['repo_name']}"."{CONFIG['table_name']}"'''
+    qualified_table = f'''"{CONFIG['repo_owner']}/{CONFIG['repo_name']}"."{CONFIG['table_name']}"'''
 
     # Construct a bitdotio client object
     bit = bitdotio.bitdotio(BITDOTIO_API_KEY)
@@ -169,7 +170,7 @@ def main():
             record = upload_buffer.pop()
             record_list = [record[col] for col in CONFIG['columns']]
             try:
-                insert_record(bit, record_list, CONFIG)
+                insert_record(bit, record_list, qualified_table)
                 logger.info(f'RECORD UPLOADED: {record}')
             except Exception as e:
                 upload_buffer.append(record)
