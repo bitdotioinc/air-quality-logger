@@ -13,6 +13,7 @@ This module includes extra comments to support a related tutorial.
 
 
 from datetime import datetime
+from collections import defaultdict
 import logging
 from logging.handlers import RotatingFileHandler
 import os
@@ -21,6 +22,14 @@ import serial
 import bitdotio
 from dotenv import load_dotenv
 import yaml
+
+import time
+try:
+    from smbus2 import SMBus
+except ImportError:
+    from smbus import SMBus
+from bme280 import BME280
+
 
 
 # Load environment variables
@@ -68,6 +77,28 @@ def parse_value(data, byte_order, start_byte, num_bytes, scale=None):
     value = value * scale if scale else value
     return value
 
+def get_bme280_sensor_reading(bme280, config):
+    record = {'location': config['location']}
+    record['measurements'] = {}
+    record["measurements"]["temp_in_c"]= bme280.get_temperature()
+    record["measurements"]["pressure"] = bme280.get_pressure()
+    record["measurements"]["humidity"] = bme280.get_humidity()
+    record['datetime'] = str(datetime.utcnow())
+    return record
+
+def get_air_quality_reading(ser, config):
+    record = {'location': config['location']}
+    record['measurements'] = {}
+    sample = ser.read(CONFIG['message_length']
+    record['sensor_id'] = parse_value(sample, config['byte_order'], *config['sensor_id'])
+
+    for measurement, parse_args in config['measurements'].items():
+        record["measurements"][measurement] = parse_value(sample, config['byte_order'], *parse_args)
+    record['datetime'] = str(datetime.utcnow())
+    return record
+
+
+
 
 def execute_sql(bitdotio, sql, params=None):
     """Run arbitrary sql with parameters on bit.io.
@@ -94,31 +125,6 @@ def execute_sql(bitdotio, sql, params=None):
     finally:
         if conn is not None:
             conn.close()
-
-
-def create_record(sample, config):
-    """Run arbitrary sql with parameters on bit.io.
-    
-    Parameters
-    ----------
-    sample : list 
-        A list of bytes objects for a sample of sensor reads.
-    config : dict
-        The configuration for creating a record.
-    
-    Returns
-    ----------
-    dict
-    ----
-    """
-    record = {'location': config['location']}
-    record['sensor_id'] = parse_value(sample[0], config['byte_order'], *config['sensor_id'])
-    record['datetime'] = str(datetime.utcnow())
-    for measurement, parse_args in config['measurements'].items():
-        meas_sum = sum([parse_value(x, config['byte_order'], *parse_args) for x in sample])
-        record[measurement] = meas_sum / config['period']
-    return record
-
 
 def insert_record(bitdotio, record, qualified_table):
     """Inserts a single sensor measurement record.
@@ -151,6 +157,11 @@ def main():
 
     # Construct an interface to the USB serial port
     ser = serial.Serial(CONFIG['port_device'])
+    i2c_addr = CONFIG['i2c_addr']
+
+    # Initialise the BME280
+    bus = SMBus(1)
+    bme280 = BME280(i2c_dev=bus,i2c_addr=i2c_addr)
 
     # Construct a container for retrying failed uploads
     # This helps if you run into an occasional network (e.g. wifi, DNS) glitch
@@ -162,9 +173,27 @@ def main():
             logger.error('Terminating process due to maximum upload failures.') 
             break
         # Read data from sensor for specified period
-        sample = [ser.read(CONFIG['message_length']) for i in range(CONFIG['period'])]
+        samples = []
+        for i in range(CONFIG['period']):
+            bme_record = get_bme280_sensor_reading(bme280, config)
+            aqi_record = get_air_quality_reading(ser, config)
+            samples.append(aqi_record.update(bme_record))
+
+        avg_record = {'location': CONFIG['location']}
+        avg_record["measurements"] = defaultdict(float) 
+        avg_record['datetime'] = str(datetime.utcnow())
+        for sample in samples:
+            for measurement in sample["measurements"]:
+                avg_record["measurements"][measurement] = avg_record["measurements"][measurement] + sample["measurements"][measurement]
+        for measurement in sample["measurements"]:
+            avg_record["measurements"][measurement] = avg_record["measurements"][measurement] / CONFIG["period"]
+
+
+        # average all the measurements
+
         # Process sample of data to create a record and add to upload buffer
-        upload_buffer.append(create_record(sample, CONFIG))
+        upload_buffer.append(avg_record)
+
         # Upload from buffer, if exception occurs, keep reading data and try later
         while upload_buffer:
             record = upload_buffer.pop()
