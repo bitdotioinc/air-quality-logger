@@ -2,12 +2,12 @@
 columns:    # Must align with schema.sql on columns
   - datetime
   - location
-  - sensor_id
   - pm_2_5
   - pm_10
   - humidity
   - temp_in_c
   - pressure
+  - sensor_id
 measurements:    # Syntax: start byte, num bytes, scale factor 
   pm_2_5:
     - 2
@@ -22,11 +22,11 @@ sensor_id:    # Syntax: start byte, num_bytes
   - 2
 port_device: /dev/ttyUSB0    # Linux USB serial port, change for Windows
 message_length: 10    # Number of bytes per sensor transmission
-period: 300    # Number of messages to aggregate per upload
+period: 100    # Number of messages to aggregate per upload
 byte_order: little # Endianness of bytes for values in the message
 max_retries: 5 # How many failed uploads are permitted before process terminates
 location: "My house, outside"
-repo_owner: air_quality_log_test    # bit.io username
+repo_owner: adam    # bit.io username
 repo_name: sensors    # bit.io repo name
 table_name: measurements    # bit.io table name
 i2c_addr: 0x77

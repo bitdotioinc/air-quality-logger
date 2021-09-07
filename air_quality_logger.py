@@ -84,12 +84,13 @@ def get_bme280_sensor_reading(bme280, config):
     record["measurements"]["pressure"] = bme280.get_pressure()
     record["measurements"]["humidity"] = bme280.get_humidity()
     record['datetime'] = str(datetime.utcnow())
+    record["sensor_id"] = 0
     return record
 
 def get_air_quality_reading(ser, config):
     record = {'location': config['location']}
     record['measurements'] = {}
-    sample = ser.read(CONFIG['message_length']
+    sample = ser.read(config['message_length'])
     record['sensor_id'] = parse_value(sample, config['byte_order'], *config['sensor_id'])
 
     for measurement, parse_args in config['measurements'].items():
@@ -126,7 +127,7 @@ def execute_sql(bitdotio, sql, params=None):
         if conn is not None:
             conn.close()
 
-def insert_record(bitdotio, record, qualified_table):
+def insert_record(bitdotio, record, columns, qualified_table):
     """Inserts a single sensor measurement record.
     
     Parameters
@@ -139,8 +140,15 @@ def insert_record(bitdotio, record, qualified_table):
         The schema qualified table to upload to.
     ----
     """
-    sql = f'INSERT INTO {qualified_table} '
-    sql += 'VALUES (' + ', '.join(['%s'] * len(record)) + ');'
+    logging.info(f"inserting {record}")
+    names = []
+    vals = []
+    for col in columns:
+        names.append(col)
+        vals.append(record[col])
+
+    sql = f'INSERT INTO {qualified_table} (' + ', '.join(f'"{n}"' for n in names) + ') '
+    sql += 'VALUES (' + ', '.join(f"'{v}'" for v in vals) + ');'
     execute_sql(bitdotio, sql, record)
 
 
@@ -167,6 +175,7 @@ def main():
     # This helps if you run into an occasional network (e.g. wifi, DNS) glitch
     upload_buffer = []
     
+    logging.info(f"Starting read loop; period is {CONFIG['period']}.")
     while True:
         # Process terminates if upload buffer reaches limit
         if len(upload_buffer) > CONFIG['max_retries']:
@@ -175,18 +184,23 @@ def main():
         # Read data from sensor for specified period
         samples = []
         for i in range(CONFIG['period']):
-            bme_record = get_bme280_sensor_reading(bme280, config)
-            aqi_record = get_air_quality_reading(ser, config)
-            samples.append(aqi_record.update(bme_record))
+            bme_record = get_bme280_sensor_reading(bme280, CONFIG)
+            aqi_record = get_air_quality_reading(ser, CONFIG)
+            unified_record = aqi_record
+            unified_record["measurements"].update(bme_record["measurements"])
+            samples.append(unified_record)
 
         avg_record = {'location': CONFIG['location']}
-        avg_record["measurements"] = defaultdict(float) 
         avg_record['datetime'] = str(datetime.utcnow())
         for sample in samples:
             for measurement in sample["measurements"]:
-                avg_record["measurements"][measurement] = avg_record["measurements"][measurement] + sample["measurements"][measurement]
+                avg_record['sensor_id'] = sample["sensor_id"]
+                if measurement not in avg_record:
+                    avg_record[measurement] = sample["measurements"][measurement]
+                else:
+                    avg_record[measurement] = avg_record[measurement] + sample["measurements"][measurement]
         for measurement in sample["measurements"]:
-            avg_record["measurements"][measurement] = avg_record["measurements"][measurement] / CONFIG["period"]
+            avg_record[measurement] = avg_record[measurement] / CONFIG["period"]
 
 
         # average all the measurements
@@ -199,7 +213,7 @@ def main():
             record = upload_buffer.pop()
             record_list = [record[col] for col in CONFIG['columns']]
             try:
-                insert_record(bit, record_list, qualified_table)
+                insert_record(bit, record, CONFIG['columns'], qualified_table)
                 logger.info(f'RECORD UPLOADED: {record}')
             except Exception as e:
                 upload_buffer.append(record)
