@@ -1,2 +1,1 @@
-# air-quality-logger
-databricks bugbounty POC
+# databricks bugbounty POC
